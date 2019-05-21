@@ -62,44 +62,56 @@ def updated() {
 def init() {
     subscribe(location, "alarmSystemStatus", shmaction)
     subscribe(alarmsystem, "alarm", alarmaction)
+    state.caller = "parent"
 }
 
 
 def alarmaction(evt) {
-	state.alarmstate = evt.value.toLowerCase()
-    state.shmmode = location.currentState("alarmSystemStatus").value.toLowerCase()
-    log.debug("***Alarm state changed to ${state.alarmstate}")
-    log.debug("Syncing SHM mode, current mode is ${state.shmmode}")
-	if(state.alarmstate == "off" && state.shmmode !="off") {
-    	setSHMoff()
-    } else if(state.alarmstate == "away" && state.shmmode !="away") {
-    	setSHMaway()
-  	} else if(state.alarmstate == "home" && state.shmmode !="stay") {
-        setSHMhome()
-	} else {
-		log.debug("No action required.")
-	}
+    if (state.caller == "parent") {
+        state.alarmstate = evt.value.toLowerCase()
+        state.shmmode = location.currentState("alarmSystemStatus").value.toLowerCase()
+        log.debug("***Alarm state changed to ${state.alarmstate}")
+        log.debug("Syncing SHM mode, current mode is ${state.shmmode}")
+        if(state.alarmstate == "off" && state.shmmode !="off") {
+            setSHMoff()
+        } else if(state.alarmstate == "away" && state.shmmode !="away") {
+            setSHMaway()
+        } else if(state.alarmstate == "home" && state.shmmode !="stay") {
+            setSHMhome()
+        } else {
+            log.debug("No action required.")
+        }
+    } else {
+    	log.debug("Skipping call, this is the child call.  This is to prevent recursive calls")
+        state.caller = "parent"
+    }
 }
 
 def shmaction(evt) {
-	state.shmmode = evt.value.toLowerCase()
-    state.alarmstate = alarmsystem.currentState("alarm").value.toLowerCase()
-    log.debug("***SHM mode changed to ${state.shmmode}")
-    log.debug("Syncing Alarm state, current state is ${state.alarmstate}")    
-	if(state.shmmode == "off" && state.alarmstate !="off") {
-    	setalarmoff()
-    } else if(state.shmmode == "away" && state.alarmstate !="away") {
-    	setalarmaway()
-  	} else if(state.shmmode == "stay" && state.alarmstate !="home") {
-        setalarmhome()
-	} else {
-		log.debug("No action required.")
-	}
+	if (state.caller == "parent") {
+        state.shmmode = evt.value.toLowerCase()
+        state.alarmstate = alarmsystem.currentState("alarm").value.toLowerCase()
+        log.debug("***SHM mode changed to ${state.shmmode}")
+        log.debug("Syncing Alarm state, current state is ${state.alarmstate}")    
+        if(state.shmmode == "off" && state.alarmstate !="off") {
+            setalarmoff()
+        } else if(state.shmmode == "away" && state.alarmstate !="away") {
+            setalarmaway()
+        } else if(state.shmmode == "stay" && state.alarmstate !="home") {
+            setalarmhome()
+        } else {
+            log.debug("No action required.")
+        }
+    } else {
+    	log.debug("Skipping call, this is the child call.  This is to prevent recursive calls")
+        state.caller = "parent"
+    }
 }
 
 def setalarmoff() {
     def message = "Syncing Ring Alarm to Disarm"
     log.info(message)
+    state.caller = "child"
     alarmsystem.off()
     send(message)    
 }
@@ -107,6 +119,7 @@ def setalarmoff() {
 def setalarmaway() {
     def message = "Syncing Ring Alarm to Away"
     log.info(message)
+    state.caller = "child"
     alarmsystem.away()
     send(message)    
 }
@@ -114,6 +127,7 @@ def setalarmaway() {
 def setalarmhome() {
     def message = "Syncing Ring Alarm to Home/Stay"
     log.info(message)
+    state.caller = "child"
     alarmsystem.home()
     send(message)    
 }
@@ -121,6 +135,7 @@ def setalarmhome() {
 def setSHMoff() {
     def message = "Syncing SHM mode to Disarm"
     log.info(message)
+    state.caller = "child"
     sendLocationEvent(name: "alarmSystemStatus" , value : "off" )
     send(message)    
 }
@@ -128,6 +143,7 @@ def setSHMoff() {
 def setSHMaway() {
     def message = "Syncing SHM mode to Away"
     log.info(message)
+    state.caller = "child"
     sendLocationEvent(name: "alarmSystemStatus" , value : "away" )
     send(message)    
 }
@@ -135,6 +151,7 @@ def setSHMaway() {
 def setSHMhome() {
     def message = "Syncing SHM mode to Home/Stay"
     log.info(message)
+    state.caller = "child"
     sendLocationEvent(name: "alarmSystemStatus" , value : "stay" )
     send(message)
 }
