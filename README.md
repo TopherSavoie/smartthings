@@ -2,6 +2,9 @@
 
 Topher Savoie UPDATE: Changed the Ring Alarm State smart app to sync the classic SHM mode to the Ring Alarm State, and vice versa.  So you can use either the SHM mode to update Ring (and invoke the Ring device handler) or you can use the Ring device to set the alarm state and it will sync the SHM mode.
 
+PLEASE NOTE:  If you use Ring.com or the Ring App, this will sync to ST, but only after the Ring Device handler poles Ring to check on the status (every 5 min).  So while it will sync ST, do not rely on it for critical ST home aoutmations if you change Ring from their app and not ST.
+
+
 > :mega: This is the `version 2 `of this application. If you are looking for the `version 1`, visit https://github.com/asishrs/smartthings-ringalarm
 
 This repository contains device handler and smart-app for Ring Alarm integration with SmartThings. In order to use this, you need to deploy the API part as described [here](https://github.com/asishrs/smartthings-ringalarmv2 ).
