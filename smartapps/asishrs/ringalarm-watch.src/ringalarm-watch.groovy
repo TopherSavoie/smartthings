@@ -1,6 +1,5 @@
 /**
  *  Ring Alarm State
-
  *  Licence Details.
  *	https://opensource.org/licenses/MIT
  *
@@ -20,12 +19,13 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+ 
 definition(
 	name: "Ring Alarm State",
 	namespace: "asishrs",
-	author: "Asish Soudhamma",
-	description: "Automatically sets the Ring Alarm alarm state based on the Smartthings mode",
-	category: "RingAlarm",
+	author: "Topher Savoie (Original: Asish Soudhamma)",
+	description: "Automatically sets the Ring Alarm alarm state based on the Smartthings mode, modified by Topher Savoie to sync only SHM and Ring Alarm",
+	category: "Convenience",
 	iconUrl: "https://cdn.shopify.com/s/files/1/2922/1686/t/2/assets/ring_logo.png?8137716793231487980",
 	iconX2Url: "https://cdn.shopify.com/s/files/1/2922/1686/t/2/assets/ring_logo.png?8137716793231487980"
 )
@@ -36,15 +36,6 @@ preferences {
 		section("Use this Alarm...") {
 			input "alarmsystem", "capability.alarm", multiple: false, required: true
 		}
-        section("Set alarm to 'Off' when mode matches") {
-			input "modealarmoff", "mode", title: "Select modes for 'Disarmed'", multiple: true, required: false
-        }
-		section("Set alarm to 'Away' when mode matches") {
-			input "modealarmaway", "mode", title: "Select modes for 'Armed Away'", multiple: true, required: false  
-        }
-		section("Set alarm to 'Home' when mode matches") {
-			input "modealarmhome", "mode", title: "Select modes for 'Armed Home'", multiple: true, required: false
-        }
 	}
     page(name: "Notifications", title: "Notifications Options", install: true, uninstall: true) {
 		section("Notifications") {
@@ -69,71 +60,93 @@ def updated() {
 }
   
 def init() {
-	subscribe(app, onAppTouch)
-    subscribe(location, "mode", modeaction)
-    subscribe(alarmsystem, "alarm", alarmstate)
+    subscribe(location, "alarmSystemStatus", shmaction)
+    subscribe(alarmsystem, "alarm", alarmaction)
 }
 
-def onAppTouch(event) {
-	log.debug("Running App Manually")
-    state.locationmode = location.mode
-	setalarmmode()
+
+def alarmaction(evt) {
+	state.alarmstate = evt.value.toLowerCase()
+    state.shmmode = location.currentState("alarmSystemStatus").value.toLowerCase()
+    log.debug("***Alarm state changed to ${state.alarmstate}")
+    log.debug("Syncing SHM mode, current mode is ${state.shmmode}")
+	if(state.alarmstate == "off" && state.shmmode !="off") {
+    	setSHMoff()
+    } else if(state.alarmstate == "away" && state.shmmode !="away") {
+    	setSHMaway()
+  	} else if(state.alarmstate == "home" && state.shmmode !="stay") {
+        setSHMhome()
+	} else {
+		log.debug("No action required.")
+	}
 }
 
-def modeaction(evt) {
-	state.locationmode = evt.value
-	setalarmmode()
-}
-
-def setalarmmode() {
-    log.debug("Setting Ring Alarm mode ${alarmsystem}")
-	state.alarmstate = alarmsystem.currentState("alarm").value.toLowerCase()
-    log.debug("Current alarm state is: ${state.alarmstate}")
-	if(state.locationmode in modealarmoff && state.alarmstate !="off") {
-    	log.debug("Location mode: $state.locationmode")
+def shmaction(evt) {
+	state.shmmode = evt.value.toLowerCase()
+    state.alarmstate = alarmsystem.currentState("alarm").value.toLowerCase()
+    log.debug("***SHM mode changed to ${state.shmmode}")
+    log.debug("Syncing Alarm state, current state is ${state.alarmstate}")    
+	if(state.shmmode == "off" && state.alarmstate !="off") {
     	setalarmoff()
-    } else if(state.locationmode in modealarmaway && state.alarmstate !="away") {
-		log.debug("Location mode: $state.locationmode")
+    } else if(state.shmmode == "away" && state.alarmstate !="away") {
     	setalarmaway()
-  	} else if(state.locationmode in modealarmhome && state.alarmstate !="home") {
-		log.debug("Location mode: $state.locationmode")
+  	} else if(state.shmmode == "stay" && state.alarmstate !="home") {
         setalarmhome()
 	} else {
-		log.debug("No actions set for location mode ${state.locationmode} or ${alarmsystem.displayName} already set to ${state.alarmstate} - aborting")
+		log.debug("No action required.")
 	}
 }
 
 def setalarmoff() {
-    def message = "Ring Alarm is DISARMED"
+    def message = "Syncing Ring Alarm to Disarm"
     log.info(message)
-    send(message)
     alarmsystem.off()
+    send(message)    
 }
   
 def setalarmaway() {
-    def message = "Ring Alarm is Armed AWAY"
+    def message = "Syncing Ring Alarm to Away"
     log.info(message)
-    send(message)
     alarmsystem.away()
+    send(message)    
 }
   
 def setalarmhome() {
-    def message = "Ring Alarm is Armed HOME"
+    def message = "Syncing Ring Alarm to Home/Stay"
     log.info(message)
-    send(message)
     alarmsystem.home()
+    send(message)    
+}
+
+def setSHMoff() {
+    def message = "Syncing SHM mode to Disarm"
+    log.info(message)
+    sendLocationEvent(name: "alarmSystemStatus" , value : "off" )
+    send(message)    
+}
+  
+def setSHMaway() {
+    def message = "Syncing SHM mode to Away"
+    log.info(message)
+    sendLocationEvent(name: "alarmSystemStatus" , value : "away" )
+    send(message)    
+}
+  
+def setSHMhome() {
+    def message = "Syncing SHM mode to Home/Stay"
+    log.info(message)
+    sendLocationEvent(name: "alarmSystemStatus" , value : "stay" )
+    send(message)
 }
 
   
 private send(msg) {
 	if (sendPushMessage != "No") {
-		log.debug("sending push message")
+		log.debug("sending push message: ${msg}")
 		sendPush(msg)
 	}
 	if (phone) {
-		log.debug("sending text message")
+		log.debug("sending text message: ${msg}")
 		sendSms(phone, msg)
 	}
-    
-	log.debug msg
 }
